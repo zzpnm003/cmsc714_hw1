@@ -15,17 +15,18 @@ int main(int argc, char** argv) {
  
   // File IO setup and buffer definition
 
-    char *mode = "r";
-    FILE *fp, *ofp;
-    fp = fopen("life.data_1_1", mode);
-    ofp = fopen("life.out_1_1", "w");
+    // char *mode = "r";
+    // FILE *fp, *ofp;
+    // fp = fopen("life.data_1_1", mode);
+    // ofp = fopen("life.out_1_1", "w");
     int x_coord = 0;
     int y_coord = 0;
     int input_coords[500][2];
     int x_limit = 250;
     int y_limit = 250;
     int generation = 100;
-    
+    int tag = 42;
+    MPI_Status  status;
     
     
     if (fp == NULL) {
@@ -82,6 +83,7 @@ int main(int argc, char** argv) {
 
 
 
+
   // Initialize the MPI environment. The two arguments to MPI Init are not
   // currently used by MPI implementations, but are there in case future
   // implementations might need the arguments.
@@ -101,20 +103,80 @@ int main(int argc, char** argv) {
   MPI_Get_processor_name(processor_name, &name_len);
 
 
+  int nrow = y_limit/world_size;
+  fprintf(stderr, "world_size %d",world_size);
+
+
+
+
+
+
+
   //******* data initilization
   if(world_rank==0)
   {
-    //****** send data to rank 1 to size-2
-    for(int i = 1; i<world_size-1; i++){
 
+    char *mode = "r";
+    FILE *fp, *ofp;
+    fp = fopen("life.data_1_1", mode);
+    ofp = fopen("life.out_1_1", "w");
+
+     if (fp == NULL) {
+        fprintf(stderr, "Can't open input file in.list!\n");
+        exit(1);
     }
-    //****** send data to rank size - 1
+    
+    
+    if (ofp == NULL) {
+        fprintf(stderr, "Can't open out file \n");
+        exit(1);
+    }
+    
+    
+    
+    int i = 0;
+    while (fscanf(fp, "%d %d", &x_coord, &y_coord) != EOF) {
+        input_coords[i][0] = x_coord;
+        input_coords[i][1] = y_coord;
+        i++;
+    }
+    
+    
+    
+    
+    //******* buffer initializaiton, two buffers to swap at the end of each interaiton
+    int x_space = x_limit;
+    int y_space = y_limit;
+    int ** map;
+    map = malloc(y_space * sizeof(int*));
+    int * temp = malloc(y_space * x_space * sizeof(int));
+    for (int i = 0; i < y_space; i++) {
+        map[i] = temp + (i * x_space);
+    }
+
+    //****** send data to rank 1 to size-1
+    for(int i = 0; i<world_size-1; i++){
+        MPI_Send(&map[nrow*i][], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+    }
 
 
+  }else{
+    int ** map_piece = (int*)malloc(nrow*x_limit*sizeof(int));
+    MPI_Recv (map_piece, nrow*, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
+    int (*startDataBuffer)[x_limit] = malloc(sizeof(int[nrow+2][x_limit]));
+    for (int i = 0; i < nrow; i++)
+    for(int j = 0; j<x_limit;j++)
+    {
+      startDataBuffer[i][j] = map_piece[i(x_limit+j)];
+    }
   }
-  if(world_rank%2==0)
+  
+
+
+  //******** game of life core code
+  if (rank%2==0)
   {
-    //******* even ranks send first
+   MPI_Send(&map[nrow*i][], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
 
   }
 
