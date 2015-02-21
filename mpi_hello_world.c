@@ -11,19 +11,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void game_life(int * map, int x_length, int y_length, int generation){
+void game_life(int * startDataBuffer, int x_length, int y_length){
 
-  int (*startDataBuffer)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+  int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+  int (*nextmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+
 
   for(int i = 1; i<= y_length; i++)
     for(int j = 1 ;j<= x_length; j++)
     {
-        startDataBuffer[i][j] = map[(i-1)*x_length+(j-1)];
+        map[i][j] = startDataBuffer[(i-1)*x_length+(j-1)];
     }
 
 
     //***** game of life iteration
+   for (int i=1; i<x_length+1; i++) 
+            for (int j = 1; j<y_length+1; j++) {
+                
+                //caculate the number of existing cellls as neighbour
+                int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
+                map[i][j-1]+map[i][j+1]+
+                map[i+1][j-1]+map[i+1][j]+map[i+1][j+1];
+                
+                if(map[i][j]==1){
+                    if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
+                        (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
+                        nextmap[i][j] = 0;
 
+                    }
+                    else if (number_cell_neighbour>8)
+                    {
+                        printf("error in counint number of living neighbours.");
+                    }
+                    else{
+                        nextmap[i][j] = 1;
+                    }
+                }
+                else{
+                    if (number_cell_neighbour==3)
+                    //map[i][j] = 1;
+                        nextmap[i][j] = 1;
+                    else{
+                        nextmap[i][j] = 0;
+                    }
+                }
+            }
 
     //****************************
 
@@ -34,11 +66,14 @@ void game_life(int * map, int x_length, int y_length, int generation){
     for(int j = 1 ;j<= x_length; j++)
     {
         //startDataBuffer[i][j] = map[(i-1)*x_length+(j-1)];
-        map[(i-1)*x_length+(j-1)] = startDataBuffer[i][j];
+        startDataBuffer[(i-1)*x_length+(j-1)] = nextmap[i][j];
     }
 
+free(map);
+free(nextmap);
 
  // return map;
+ 
 }
 
 int main(int argc, char** argv) {
@@ -208,8 +243,9 @@ int main(int argc, char** argv) {
     }
 
     //****** send data to rank 1 to size-1
-    for(int i = 0; i<world_size-1; i++){
-        MPI_Send(&map[nrow*i][0], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+    for(int i = 1; i<world_size; i++){
+       // MPI_Send(&map[nrow*i][0], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+        MPI_Send(&map[y_limit-nrow*(world_size-1)+(i-1)*nrow][0], nrow*x_limit, MPI_INT, i, tag, MPI_COMM_WORLD);
     }
 
 
@@ -232,8 +268,126 @@ int main(int argc, char** argv) {
   //  MPI_Send(&map[nrow*i][], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
 
   // }
+  for(int i = 0; i<generation; i++){
+    // if(world_rank!=0){
+
+    //    //******* update the first and last rows of the block
+    //   /* code */
+
+    //    game_life( map_piece,  x_limit,  nrow);
+    // }
+    // else{
+
+    //    int *tempBuffer = (int *)malloc( (y_limit - nrow * (world_size - 1)) * x_limit * sizeof(int) );
+    //    for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
+    //     for(int k = 0; k < x_limit; k++)
+    //     {
+    //       tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
+    //     }
+
+    //     game_life(tempBuffer, x_limit; y_limit - nrow * (world_size - 1))
+
+    //    for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
+    //     for(int k = 0; k < x_limit; k++)
+    //     {
+    //       //tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
+    //       map[nrow * (world_size - 1) + j][k] = tempBuffer[j * x_limit + k]
+    //     } 
+
+    // }
+
+      if(world_rank==0){
+
+        //******** wait for node 2 to send the first line of block 2
+        /****  code *****/
+        int * patch = (int *) malloc(x_limit*sizeof(int));
+        //MPI_Send(&map[nrow*i][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
+        MPI_Send(&map[ y_limit - nrow*(world_size-1) -1 ][0], x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD);
+        MPI_Recv (patch, x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD, &status);
 
 
+
+        int *tempBuffer = (int *)malloc( (y_limit - nrow * (world_size - 1)) * x_limit * sizeof(int) );
+         for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
+          for(int k = 0; k < x_limit; k++)
+          {
+           // tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
+            tempBuffer[j * x_limit + k] = map[j][k];
+          }
+
+
+        //TODO add pathed version of game_life: bottompatch needed, all zeros upper patch needed too
+        game_life(tempBuffer, x_limit, y_limit - nrow * (world_size - 1));
+
+         for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
+          for(int k = 0; k < x_limit; k++)
+          {
+            //tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
+            map[j][k] = tempBuffer[j * x_limit + k];
+          }
+
+        free(patch);
+
+
+      }else if(world_rank==world_size-1){
+        //******** wait for node size - 2 to send the first line of block 2
+        /****  code *****/
+        int * patch = (int *) malloc(x_limit*sizeof(int));
+        MPI_Recv (patch, x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD, &status);
+        MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
+
+
+
+          //***** patched version of game of life, patch the uppter line with patch ,and the bottom line with all zeros
+          game_life( map_piece,  x_limit,  nrow);
+
+
+        free(patch);
+
+       
+         
+
+      }else{
+
+          //******* update the first  and last line of this block
+          /*** code ****/
+        int * upperpatch = (int *) malloc(x_limit*sizeof(int));
+        int * bottompatch = (int *) malloc(x_limit*sizeof(int));
+
+        if(world_rank%2==0)
+        {
+          //***** send first
+         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
+         MPI_Recv (upperpatch, x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD, &status);
+
+         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
+         MPI_Recv (bottompatch, x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD, &status);
+
+
+        }else{
+          //***** receive first
+         MPI_Recv (upperpatch, x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD, &status);
+         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
+
+
+         MPI_Recv (bottompatch, x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD, &status);
+         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
+
+
+
+        }
+
+         game_life( map_piece,  x_limit,  nrow);
+
+
+        free(upperpatch);
+        free(bottompatch);
+
+
+      }
+
+
+  }
 
 
 
@@ -249,7 +403,8 @@ int main(int argc, char** argv) {
         for(int j = 0 ;j<nrow;j++)
           for(int k = 0; k < x_limit; k++)
           {
-            map[(i-1)*nrow+j][k] = tempBuffer[j*x_limit+k];
+           // map[(i-1)*nrow+j][k] = tempBuffer[j*x_limit+k];
+            map[ y_limit - nrow*(world_size-1) + (i-1)*nrow + j][k] = tempBuffer[j*x_limit+k];
           }
     }
 
@@ -301,3 +456,15 @@ int main(int argc, char** argv) {
   // Finalize the MPI environment. No more MPI calls can be made after this
   MPI_Finalize();
 }
+
+
+
+
+
+
+
+
+
+
+
+
