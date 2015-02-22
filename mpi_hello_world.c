@@ -11,8 +11,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void game_life(int * startDataBuffer, int x_length, int y_length){
+void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpatch, int * bottompatch){
 
+
+  /******   a (x_length+2)*(y_length+2) matrix    *****/
   int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
   int (*nextmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
 
@@ -22,6 +24,26 @@ void game_life(int * startDataBuffer, int x_length, int y_length){
     {
         map[i][j] = startDataBuffer[(i-1)*x_length+(j-1)];
     }
+
+
+
+
+    /***** adding patch ******/
+    if(upperpatch!=NULL)
+    {
+      for(int i = 0; i < x_length; i++)
+      {
+        map[i+1][0] = upperpatch[i];
+      }
+    }
+    if(bottompatch!=NULL)
+    {
+      for(int i = 0; i < x_length; i++)
+      {
+        map[i+1][y_length+1] = bottompatch[i];
+      }
+    }
+
 
 
     //***** game of life iteration
@@ -96,6 +118,7 @@ int main(int argc, char** argv) {
     int ** map;
     FILE *fp, *ofp;
     int * temp;
+    int (*divisionMap)[x_limit];
 
    //  if (fp == NULL) {
    //      fprintf(stderr, "Can't open input file in.list!\n");
@@ -250,14 +273,15 @@ int main(int argc, char** argv) {
 
 
   }else{
+    divisionMap = malloc(sizeof(int[nrow][x_limit]));
     map_piece = (int*)malloc(nrow*x_limit*sizeof(int));
     MPI_Recv (map_piece, nrow*x_limit, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
     // int (*startDataBuffer)[x_limit] = malloc(sizeof(int[nrow+2][x_limit]));
-    // for (int i = 0; i < nrow; i++)
-    // for(int j = 0; j<x_limit;j++)
-    // {
-    //   startDataBuffer[i][j] = map_piece[i(x_limit+j)];
-    // }
+    for (int i = 0; i < nrow; i++)
+    for(int j = 0; j<x_limit;j++)
+    {
+      divisionMap[i][j] = map_piece[i*x_limit+j];
+    }
   }
   
 
@@ -300,10 +324,10 @@ int main(int argc, char** argv) {
 
         //******** wait for node 2 to send the first line of block 2
         /****  code *****/
-        int * patch = (int *) malloc(x_limit*sizeof(int));
+        int * bottompatch = (int *) malloc(x_limit*sizeof(int));
         //MPI_Send(&map[nrow*i][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
         MPI_Send(&map[ y_limit - nrow*(world_size-1) -1 ][0], x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD);
-        MPI_Recv (patch, x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD, &status);
+        MPI_Recv (bottompatch, x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD, &status);
 
 
 
@@ -317,7 +341,7 @@ int main(int argc, char** argv) {
 
 
         //TODO add pathed version of game_life: bottompatch needed, all zeros upper patch needed too
-        game_life(tempBuffer, x_limit, y_limit - nrow * (world_size - 1));
+        game_life(tempBuffer, x_limit, y_limit - nrow * (world_size - 1), NULL, bottompatch);
 
          for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
           for(int k = 0; k < x_limit; k++)
@@ -326,23 +350,23 @@ int main(int argc, char** argv) {
             map[j][k] = tempBuffer[j * x_limit + k];
           }
 
-        free(patch);
+        free(bottompatch);
 
 
       }else if(world_rank==world_size-1){
         //******** wait for node size - 2 to send the first line of block 2
         /****  code *****/
-        int * patch = (int *) malloc(x_limit*sizeof(int));
-        MPI_Recv (patch, x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD, &status);
+        int * upperpatch = (int *) malloc(x_limit*sizeof(int));
+        MPI_Recv (upperpatch, x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD, &status);
         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
 
 
 
           //***** patched version of game of life, patch the uppter line with patch ,and the bottom line with all zeros
-          game_life( map_piece,  x_limit,  nrow);
+          game_life( map_piece,  x_limit,  nrow, upperpatch, NULL);
 
 
-        free(patch);
+        free(upperpatch);
 
        
          
@@ -357,28 +381,39 @@ int main(int argc, char** argv) {
         if(world_rank%2==0)
         {
           //***** send first
-         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
+         MPI_Send(&divisionMap[0][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
          MPI_Recv (upperpatch, x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD, &status);
 
-         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
+         MPI_Send(&divisionMap[nrow-1][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
          MPI_Recv (bottompatch, x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD, &status);
 
 
         }else{
           //***** receive first
          MPI_Recv (upperpatch, x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD, &status);
-         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
+         MPI_Send(&divisionMap[0][0], x_limit, MPI_INT, world_rank-1, tag, MPI_COMM_WORLD);
 
 
          MPI_Recv (bottompatch, x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD, &status);
-         MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
+         MPI_Send(&map[nrow-1][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
 
 
 
         }
 
-         game_life( map_piece,  x_limit,  nrow);
+        for(int i = 0; i < nrow; i++)
+        for(int j = 0; j<x_limit;j++)
+        {
+          divisionMap[i][j] = map_piece[i*x_limit+j];
+        }
 
+        game_life( map_piece,  x_limit,  nrow, upperpatch, bottompatch);
+
+        for(int i = 0; i < nrow; i++)
+        for(int j = 0; j<x_limit;j++)
+        {
+          map_piece[i*x_limit+j] = divisionMap[i][j];
+        }
 
         free(upperpatch);
         free(bottompatch);
@@ -439,6 +474,8 @@ int main(int argc, char** argv) {
     free(temp);
   }else{
     MPI_Send(map_piece, nrow*x_limit, MPI_INT, 0, tag, MPI_COMM_WORLD);
+    free(map_piece);
+    free(divisionMap);
   }
 
 
