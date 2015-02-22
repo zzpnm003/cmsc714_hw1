@@ -15,10 +15,28 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
 
 
   /******   a (x_length+2)*(y_length+2) matrix    *****/
-  int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+ // int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
 
   //******* could be c99 bug that the dynamic 2d Array definition is well supported. 
-  int (*nextlocalmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+ // int (*nextlocalmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+
+
+
+    int ** map = malloc((y_length+2) * sizeof(int*));
+    int  *temp = malloc( (y_length+2) * (x_length+2) * sizeof(int));
+    for (int i = 0; i < y_length+2; i++) {
+        map[i] = temp + (i * (x_length+2));
+    }
+
+
+    int ** nextlocalmap = malloc((y_length+2) * sizeof(int*));
+    int  *nexttemp = malloc( (y_length+2) * (x_length+2) * sizeof(int));
+    for (int i = 0; i < y_length+2; i++) {
+        nextlocalmap[i] = nexttemp + (i * (x_length+2));
+    }
+
+
+
 
 
   for(int i = 1; i<= y_length; i++)
@@ -35,22 +53,24 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
     {
       for(int i = 0; i < x_length; i++)
       {
-        map[i+1][0] = upperpatch[i];
+        //map[i+1][0] = upperpatch[i];
+        map[0][i+1] = upperpatch[i];
       }
     }
     if(bottompatch!=NULL)
     {
       for(int i = 0; i < x_length; i++)
       {
-        map[i+1][y_length+1] = bottompatch[i];
+      //  map[i+1][y_length+1] = bottompatch[i];
+        map[y_length+1][i+1] = bottompatch[i];
       }
     }
 
 
 
     //***** game of life iteration
-   for (int i=1; i<x_length+1; i++) 
-   { for (int j = 1; j<y_length+1; j++) {
+   for (int i=1; i<y_length+1; i++) 
+   { for (int j = 1; j<x_length+1; j++) {
                    
                    //caculate the number of existing cellls as neighbour
                    int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
@@ -97,6 +117,9 @@ if(map !=NULL)
 free(map);
 if(nextlocalmap!=NULL)
 free(nextlocalmap);
+
+free(temp);
+free(nexttemp);
 
 return;
  // return map;
