@@ -36,7 +36,11 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
     }
 
 
-
+    for(int i = 0; i<y_length+2;i++)
+      for(int j = 0; j<x_length+2; j++){
+        map[i][j] = 0;
+        nextlocalmap[i][j] = 0;
+      }
 
 
   for(int i = 1; i<= y_length; i++)
@@ -72,34 +76,34 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
    for (int i=1; i<y_length+1; i++) 
    { for (int j = 1; j<x_length+1; j++) {
                    
-                   //caculate the number of existing cellls as neighbour
-                   int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
-                   map[i][j-1]+map[i][j+1]+
-                   map[i+1][j-1]+map[i+1][j]+map[i+1][j+1];
-                   
-                   if(map[i][j]==1){
-                       if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
-                           (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
-                           nextlocalmap[i][j] = 0;
-   
-                       }
-                       else if (number_cell_neighbour>8)
-                       {
-                           printf("error in counint number of living neighbours.");
-                       }
-                       else{
-                           nextlocalmap[i][j] = 1;
-                       }
-                   }
-                   else{
-                       if (number_cell_neighbour==3)
-                       //map[i][j] = 1;
-                           nextlocalmap[i][j] = 1;
-                       else{
-                           nextlocalmap[i][j] = 0;
-                       }
-                   }
-               }
+         //caculate the number of existing cellls as neighbour
+         int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
+         map[i][j-1]+map[i][j+1]+
+         map[i+1][j-1]+map[i+1][j]+map[i+1][j+1];
+         
+         if(map[i][j]==1){
+             if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
+                 (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
+                 nextlocalmap[i][j] = 0;
+
+             }
+             else if (number_cell_neighbour>8)
+             {
+                 printf("error in counint number of living neighbours.");
+             }
+             else{
+                 nextlocalmap[i][j] = 1;
+             }
+         }
+         else{
+             if (number_cell_neighbour==3)
+             //map[i][j] = 1;
+                 nextlocalmap[i][j] = 1;
+             else{
+                 nextlocalmap[i][j] = 0;
+             }
+         }
+     }
    }
     //****************************
 
@@ -237,8 +241,8 @@ int main(int argc, char** argv) {
 
     char *mode = "r";
     //FILE *fp, *ofp;
-    fp = fopen("life.data_1_1", mode);
-    ofp = fopen("life.out_1_1_new", "w");
+    fp = fopen("life.data.2", mode);
+    ofp = fopen("life.out.2", "w");
 
      if (fp == NULL) {
         fprintf(stderr, "Can't open input file in.list!\n");
@@ -283,15 +287,15 @@ int main(int argc, char** argv) {
 
 
     fprintf(stderr, "reading \n");
-    for (int i=0; i<x_limit; i++) {
-        for (int j = 0; j<y_limit; j++) {
-            if (map[i][j]==1) {
-                //fprintf(ofp, "%d %d\n", i, j);
-                fprintf(stderr, "%d %d\n", i, j);
+    // for (int i=0; i<x_limit; i++) {
+    //     for (int j = 0; j<y_limit; j++) {
+    //         if (map[i][j]==1) {
+    //             //fprintf(ofp, "%d %d\n", i, j);
+    //             fprintf(stderr, "%d %d\n", i, j);
 
-            }
-        }
-    }
+    //         }
+    //     }
+    // }
 
     //****** send data to rank 1 to size-1
     for(int i = 1; i<world_size; i++){
@@ -384,17 +388,24 @@ int main(int argc, char** argv) {
           }
 
         free(bottompatch);
+        free(tempBuffer);
 
 
       }else if(world_rank==world_size-1){
+
+
+
         //******** wait for node size - 2 to send the first line of block 2
         /****  code *****/
+      // fprintf(stderr, "start:  from node %d, %d generation\n", world_rank, i);
+
+
         int * upperpatch = (int *) malloc(x_limit*sizeof(int));
         MPI_Recv (upperpatch, x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD, &status);
-        //fprintf(stderr, " rec / send from node %d\n", world_rank);
-        MPI_Send(&divisionMap[y_limit- nrow][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
+      //  fprintf(stderr, " rec / send from node %d\n", world_rank);
+        MPI_Send(&divisionMap[0][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
 
-           //     fprintf(stderr, " from node %d\n", world_rank);
+      // fprintf(stderr, " from node %d, %d generation\n", world_rank, i);
       //  fprintf(stderr, " send / recv %d\n", world_rank);
 
           //***** patched version of game of life, patch the uppter line with patch ,and the bottom line with all zeros
@@ -465,7 +476,7 @@ int main(int argc, char** argv) {
 
 
       }
-
+        MPI_Barrier(MPI_COMM_WORLD);
 
   }
 
@@ -492,12 +503,12 @@ int main(int argc, char** argv) {
     }
 
 
-    fprintf(stderr, "output \n");
+   // fprintf(stderr, "output \n");
     for (int i=0; i<x_limit; i++) {
         for (int j = 0; j<y_limit; j++) {
             if (map[i][j]==1) {
                 fprintf(ofp, "%d %d\n", i, j);
-                fprintf(stderr, "%d %d\n", i, j);
+               // fprintf(stderr, "%d %d\n", i, j);
 
             }
         }

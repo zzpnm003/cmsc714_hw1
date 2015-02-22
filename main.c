@@ -80,8 +80,8 @@ int main(int argc, const char * argv[])
 
     for (int k = 0; k<generation; k++) {
         
-        for (int i=1; i<x_limit+1; i++) {
-            for (int j = 1; j<y_limit+1; j++) {
+        for (int i=1; i<y_limit+1; i++) {
+            for (int j = 1; j<x_limit+1; j++) {
                 
                 //caculate the number of existing cellls as neighbour
                 int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
