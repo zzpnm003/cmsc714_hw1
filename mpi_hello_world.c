@@ -292,6 +292,7 @@ int main(int argc, char** argv) {
   //  MPI_Send(&map[nrow*i][], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
 
   // }
+  while(0)
   for(int i = 0; i<generation; i++){
     // if(world_rank!=0){
 
@@ -423,6 +424,9 @@ int main(int argc, char** argv) {
 
 
   }
+
+
+
 
 
 
