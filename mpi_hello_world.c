@@ -16,6 +16,8 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
 
   /******   a (x_length+2)*(y_length+2) matrix    *****/
   int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+
+  //******* could be c99 bug that the dynamic 2d Array definition is well supported. 
   int (*nextlocalmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
 
 
@@ -48,37 +50,37 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
 
     //***** game of life iteration
    for (int i=1; i<x_length+1; i++) 
-            for (int j = 1; j<y_length+1; j++) {
-                
-                //caculate the number of existing cellls as neighbour
-                int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
-                map[i][j-1]+map[i][j+1]+
-                map[i+1][j-1]+map[i+1][j]+map[i+1][j+1];
-                
-                if(map[i][j]==1){
-                    if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
-                        (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
-                        nextlocalmap[i][j] = 0;
-
-                    }
-                    else if (number_cell_neighbour>8)
-                    {
-                        printf("error in counint number of living neighbours.");
-                    }
-                    else{
-                        nextlocalmap[i][j] = 1;
-                    }
-                }
-                else{
-                    if (number_cell_neighbour==3)
-                    //map[i][j] = 1;
-                        nextlocalmap[i][j] = 1;
-                    else{
-                        nextlocalmap[i][j] = 0;
-                    }
-                }
-            }
-
+   { for (int j = 1; j<y_length+1; j++) {
+                   
+                   //caculate the number of existing cellls as neighbour
+                   int number_cell_neighbour = map[i-1][j-1]+map[i-1][j]+map[i-1][j+1]+
+                   map[i][j-1]+map[i][j+1]+
+                   map[i+1][j-1]+map[i+1][j]+map[i+1][j+1];
+                   
+                   if(map[i][j]==1){
+                       if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
+                           (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
+                           nextlocalmap[i][j] = 0;
+   
+                       }
+                       else if (number_cell_neighbour>8)
+                       {
+                           printf("error in counint number of living neighbours.");
+                       }
+                       else{
+                           nextlocalmap[i][j] = 1;
+                       }
+                   }
+                   else{
+                       if (number_cell_neighbour==3)
+                       //map[i][j] = 1;
+                           nextlocalmap[i][j] = 1;
+                       else{
+                           nextlocalmap[i][j] = 0;
+                       }
+                   }
+               }
+   }
     //****************************
 
 
@@ -96,6 +98,7 @@ free(map);
 if(nextlocalmap!=NULL)
 free(nextlocalmap);
 
+return;
  // return map;
  
 }
