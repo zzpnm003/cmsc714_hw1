@@ -16,7 +16,7 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
 
   /******   a (x_length+2)*(y_length+2) matrix    *****/
   int (*map)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
-  int (*nextmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
+  int (*nextlocalmap)[x_length] = malloc(sizeof(int[y_length+2][x_length+2]));
 
 
   for(int i = 1; i<= y_length; i++)
@@ -58,7 +58,7 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
                 if(map[i][j]==1){
                     if ((number_cell_neighbour>=0&&number_cell_neighbour<=1)||
                         (number_cell_neighbour>=4&&number_cell_neighbour<=8)) {
-                        nextmap[i][j] = 0;
+                        nextlocalmap[i][j] = 0;
 
                     }
                     else if (number_cell_neighbour>8)
@@ -66,15 +66,15 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
                         printf("error in counint number of living neighbours.");
                     }
                     else{
-                        nextmap[i][j] = 1;
+                        nextlocalmap[i][j] = 1;
                     }
                 }
                 else{
                     if (number_cell_neighbour==3)
                     //map[i][j] = 1;
-                        nextmap[i][j] = 1;
+                        nextlocalmap[i][j] = 1;
                     else{
-                        nextmap[i][j] = 0;
+                        nextlocalmap[i][j] = 0;
                     }
                 }
             }
@@ -88,11 +88,13 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
     for(int j = 1 ;j<= x_length; j++)
     {
         //startDataBuffer[i][j] = map[(i-1)*x_length+(j-1)];
-        startDataBuffer[(i-1)*x_length+(j-1)] = nextmap[i][j];
+        startDataBuffer[(i-1)*x_length+(j-1)] = nextlocalmap[i][j];
     }
 
+if(map !=NULL)
 free(map);
-free(nextmap);
+if(nextlocalmap!=NULL)
+free(nextlocalmap);
 
  // return map;
  
@@ -210,7 +212,7 @@ int main(int argc, char** argv) {
     char *mode = "r";
     //FILE *fp, *ofp;
     fp = fopen("life.data_1_1", mode);
-    ofp = fopen("life.out_1_1", "w");
+    ofp = fopen("life.out_1_1_new", "w");
 
      if (fp == NULL) {
         fprintf(stderr, "Can't open input file in.list!\n");
@@ -292,7 +294,9 @@ int main(int argc, char** argv) {
   //  MPI_Send(&map[nrow*i][], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
 
   // }
-  while(0)
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  //while()
   for(int i = 0; i<generation; i++){
     // if(world_rank!=0){
 
@@ -328,9 +332,11 @@ int main(int argc, char** argv) {
         int * bottompatch = (int *) malloc(x_limit*sizeof(int));
         //MPI_Send(&map[nrow*i][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
         MPI_Send(&map[ y_limit - nrow*(world_size-1) -1 ][0], x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD);
+      //  fprintf(stderr, " send / recv %d\n", world_rank);
         MPI_Recv (bottompatch, x_limit, MPI_INT, 1, tag, MPI_COMM_WORLD, &status);
 
-
+      //  fprintf(stderr, " from node %d\n", world_rank);
+      //  fprintf(stderr, " send / recv %d\n", world_rank);
 
         int *tempBuffer = (int *)malloc( (y_limit - nrow * (world_size - 1)) * x_limit * sizeof(int) );
          for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
@@ -359,13 +365,24 @@ int main(int argc, char** argv) {
         /****  code *****/
         int * upperpatch = (int *) malloc(x_limit*sizeof(int));
         MPI_Recv (upperpatch, x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD, &status);
-        MPI_Send(&map[y_limit- nrow][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
+        //fprintf(stderr, " rec / send from node %d\n", world_rank);
+        MPI_Send(&divisionMap[y_limit- nrow][0], x_limit, MPI_INT, world_size-2, tag, MPI_COMM_WORLD);
 
-
+           //     fprintf(stderr, " from node %d\n", world_rank);
+      //  fprintf(stderr, " send / recv %d\n", world_rank);
 
           //***** patched version of game of life, patch the uppter line with patch ,and the bottom line with all zeros
+        for(int i = 0; i < nrow; i++)
+        for(int j = 0; j<x_limit;j++)
+        {
+           map_piece[i*x_limit+j] =  divisionMap[i][j];
+        }
           game_life( map_piece,  x_limit,  nrow, upperpatch, NULL);
-
+        for(int i = 0; i < nrow; i++)
+        for(int j = 0; j<x_limit;j++)
+        {
+          divisionMap[i][j] =  map_piece[i*x_limit+j] ;
+        }
 
         free(upperpatch);
 
@@ -396,16 +413,17 @@ int main(int argc, char** argv) {
 
 
          MPI_Recv (bottompatch, x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD, &status);
-         MPI_Send(&map[nrow-1][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
+         MPI_Send(&divisionMap[nrow-1][0], x_limit, MPI_INT, world_rank+1, tag, MPI_COMM_WORLD);
 
 
 
         }
+      //  fprintf(stderr, " send / recv %d\n", world_rank);
 
         for(int i = 0; i < nrow; i++)
         for(int j = 0; j<x_limit;j++)
         {
-          divisionMap[i][j] = map_piece[i*x_limit+j];
+           map_piece[i*x_limit+j] =  divisionMap[i][j];
         }
 
         game_life( map_piece,  x_limit,  nrow, upperpatch, bottompatch);
@@ -413,7 +431,7 @@ int main(int argc, char** argv) {
         for(int i = 0; i < nrow; i++)
         for(int j = 0; j<x_limit;j++)
         {
-          map_piece[i*x_limit+j] = divisionMap[i][j];
+         divisionMap[i][j] =  map_piece[i*x_limit+j] ;
         }
 
         free(upperpatch);
