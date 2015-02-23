@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     // ofp = fopen("life.out_1_1", "w");
     int x_coord = 0;
     int y_coord = 0;
-    int input_coords[500][2];
+    int input_coords[10000][2];
     int x_limit = 250;
     int y_limit = 250;
     int generation = 100;
@@ -241,8 +241,8 @@ int main(int argc, char** argv) {
 
     char *mode = "r";
     //FILE *fp, *ofp;
-    fp = fopen("life.data.2", mode);
-    ofp = fopen("life.out.2", "w");
+    fp = fopen("final.data", mode);
+    ofp = fopen("final.out", "w");
 
      if (fp == NULL) {
         fprintf(stderr, "Can't open input file in.list!\n");
