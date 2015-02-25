@@ -11,7 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpatch, int * bottompatch){
+void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpatch, int * bottompatch, 
+  int upperleft, int upperright, int bottomleft, int bottomright){
 
 
   /******   a (x_length+2)*(y_length+2) matrix    *****/
@@ -70,6 +71,22 @@ void game_life(int * startDataBuffer, int x_length, int y_length, int * upperpat
       }
     }
 
+    if(upperleft>=0)
+    {
+      map[0][0] = upperleft;
+    }
+    if(upperright>=0)
+    {
+      map[0][x_length+1] = upperright;
+    }
+    if(bottomleft>=0)
+    {
+      map[y_length+1][0] = bottomleft;
+    }
+    if(bottomright>=0)
+    {
+      map[y_length+1][x_length+1] = bottomright;
+    }
 
 
     //***** game of life iteration
