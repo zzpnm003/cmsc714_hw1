@@ -168,61 +168,10 @@ int main(int argc, char** argv) {
     FILE *fp, *ofp;
     int * temp;
     int (*divisionMap)[x_limit];
+    int x_node = 1;
+    int y_node = 1;
 
-   //  if (fp == NULL) {
-   //      fprintf(stderr, "Can't open input file in.list!\n");
-   //      exit(1);
-   //  }
-    
-    
-   //  if (ofp == NULL) {
-   //      fprintf(stderr, "Can't open out file \n");
-   //      exit(1);
-   //  }
-    
-    
-    
-   //  int i = 0;
-   //  while (fscanf(fp, "%d %d", &x_coord, &y_coord) != EOF) {
-   //      input_coords[i][0] = x_coord;
-   //      input_coords[i][1] = y_coord;
-   //      i++;
-   //  }
-    
-    
-    
-    
-   //  //******* buffer initializaiton, two buffers to swap at the end of each interaiton
-   //  int x_space = x_limit;
-   //  int y_space = y_limit;
-   //  int ** map;
-   //  map = malloc(y_space * sizeof(int*));
-   //  int * temp = malloc(y_space * x_space * sizeof(int));
-   //  for (int i = 0; i < y_space; i++) {
-   //      map[i] = temp + (i * x_space);
-   //  }
-
-    
-   //  int ** nextmap;
-   //  nextmap = malloc(y_space * sizeof(int*));
-   //  int ** nexttemp = malloc(y_space * x_space * sizeof(int));
-   //  for (int i = 0; i < y_space; i++) {
-   //      nextmap[i] = nextmap + (i * x_space);
-   //  }
-
-   // // if(&map[3][4]==NULL)
-   //  //    fprintf(stderr, "error");
-   // // printf("%d\n,  ",map[3][4]);
-    
-   //  for (int j = 0; j<i; j++) {
-   //      // The coordinate is shifted one to right and upper for the boundary condition
-   //      map[ input_coords[j][0]][ input_coords[j][1]] = 1;
-   //  }
-
-
-
-
-
+  
 
   // Initialize the MPI environment. The two arguments to MPI Init are not
   // currently used by MPI implementations, but are there in case future
@@ -243,7 +192,39 @@ int main(int argc, char** argv) {
   MPI_Get_processor_name(processor_name, &name_len);
 
 
-  int nrow = y_limit/world_size;
+  /*** setup the two dimension size****/
+  if(world_size==32)
+  {
+    x_node = 4; 
+    y_node = 8;
+  }
+  else if(world_size==16)
+  {
+    x_node = 4; 
+    y_node = 4;
+  }
+  else if(world_size==8)
+  {
+    x_node = 2; 
+    y_node = 4;
+  }
+  else if(world_size==4)
+  {
+    x_node = 2; 
+    y_node = 2;
+  }
+  else{
+    fprintf(stderr, "number of node %d is not supported by this two dimension decomposition",world_size);
+    MPI_Finalize();
+    exit(1);
+
+  }
+
+
+  int nrow = y_limit/y_node;
+  int ncolumn = x_limit/x_node;
+  int y_rem = y_limit%y_node;
+  int x_rem = x_limit%x_node;
   //fprintf(stderr, "world_size %d",world_size);
 
 
@@ -262,7 +243,7 @@ int main(int argc, char** argv) {
     ofp = fopen("final.out", "w");
 
      if (fp == NULL) {
-        fprintf(stderr, "Can't open input file in.list!\n");
+        fprintf(stderr, "Can't open input file\n");
         MPI_Finalize();
         exit(1);
     }
@@ -298,7 +279,7 @@ int main(int argc, char** argv) {
 
     
     for (int j = 0; j<i; j++) {
-        // The coordinate is shifted one to right and upper for the boundary condition
+        // ******** The coordinate is shifted one to right and upper for the boundary condition
         map[ input_coords[j][0]][ input_coords[j][1]] = 1;
     }
 
@@ -315,10 +296,36 @@ int main(int argc, char** argv) {
     // }
 
     //****** send data to rank 1 to size-1
-    for(int i = 1; i<world_size; i++){
-       // MPI_Send(&map[nrow*i][0], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
-        MPI_Send(&map[y_limit-nrow*(world_size-1)+(i-1)*nrow][0], nrow*x_limit, MPI_INT, i, tag, MPI_COMM_WORLD);
-    }
+    // for(int i = 1; i<world_size; i++){
+    //    // MPI_Send(&map[nrow*i][0], nrow*x_limit, MPI_INT, i+1, tag, MPI_COMM_WORLD);
+    //     MPI_Send(&map[y_limit-nrow*(world_size-1)+(i-1)*nrow][0], nrow*x_limit, MPI_INT, i, tag, MPI_COMM_WORLD);
+    // }
+
+    /**** send data to nodes from rank 1 to rank size-1 ***/
+    /****  ****/
+    // for(int i = 1; i<world_size; i++){
+    //     MPI_Send(&map[y_limit-nrow*(world_size-1)+(i-1)*nrow][0], nrow*x_limit, MPI_INT, i, tag, MPI_COMM_WORLD);
+    // }
+
+    for(int i = 0; i < y_node; i++)
+      for(int j = 0; j < x_node; j++)
+      {
+        if(i==0){
+          if(j!=0){
+              int * temp_2D_buffer = (int *)malloc( (y_rem + nrow) * ncolumn * sizeof(int));
+              for(int m = 0; m < y_rem + nrow; m++)
+                for(int n = 0; n < ncolumn; n++)
+                {
+                  temp_2D_buffer[m*ncolumn+n] = map[ 0 + m ][x_rem+ncolumn + n];
+                }
+              MPI_Send(temp_2D_buffer, (y_rem + nrow) * ncolumn, MPI_INT, i*x_node+j, tag, MPI_COMM_WORLD);
+              free(temp_2D_buffer);
+          }
+        }
+        else
+
+      }
+
 
 
   }else{
@@ -345,32 +352,7 @@ int main(int argc, char** argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   //while()
   for(int i = 0; i<generation; i++){
-    // if(world_rank!=0){
-
-    //    //******* update the first and last rows of the block
-    //   /* code */
-
-    //    game_life( map_piece,  x_limit,  nrow);
-    // }
-    // else{
-
-    //    int *tempBuffer = (int *)malloc( (y_limit - nrow * (world_size - 1)) * x_limit * sizeof(int) );
-    //    for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
-    //     for(int k = 0; k < x_limit; k++)
-    //     {
-    //       tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
-    //     }
-
-    //     game_life(tempBuffer, x_limit; y_limit - nrow * (world_size - 1))
-
-    //    for(int j =0;j < y_limit - nrow * (world_size - 1); j++)
-    //     for(int k = 0; k < x_limit; k++)
-    //     {
-    //       //tempBuffer[j * x_limit + k] = map[nrow * (world_size - 1) + j][k];
-    //       map[nrow * (world_size - 1) + j][k] = tempBuffer[j * x_limit + k]
-    //     } 
-
-    // }
+   
 
       if(world_rank==0){
 
